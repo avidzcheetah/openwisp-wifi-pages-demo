@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OpenWISP — WiFi Login Pages Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Vars ─────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e1a;
+  --surface:#111827;
+  --surface2:#1a2235;
+  --border:#1e2d45;
+  --blue:#3b82f6;
+  --blue-soft:#1d4ed8;
+  --cyan:#06b6d4;
+  --green:#10b981;
+  --orange:#f59e0b;
+  --red:#ef4444;
+  --purple:#8b5cf6;
+  --text:#f1f5f9;
+  --muted:#64748b;
+  --muted2:#94a3b8;
+  --font:'Outfit',sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --radius:12px;
+  --radius-lg:18px;
+  --shadow:0 20px 60px rgba(0,0,0,0.6);
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ── Layout ───────────────────────────────────────────── */
+.app{display:grid;grid-template-columns:1fr 340px;min-height:100vh;gap:0}
+@media(max-width:900px){.app{grid-template-columns:1fr}.devpanel{display:none}}
+
+/* ── Background ──────────────────────────────────────── */
+.wifi-bg{
+  position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 80% 60% at 30% 20%, #0d1f3c 0%, transparent 60%),
+             radial-gradient(ellipse 60% 80% at 80% 80%, #0c1a2e 0%, transparent 60%),
+             var(--bg);
+}
+.grid-lines{
+  position:fixed;inset:0;z-index:0;
+  background-image:
+    linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+  background-size:40px 40px;
+}
+.glow{
+  position:fixed;top:-200px;left:50%;transform:translateX(-50%);
+  width:800px;height:400px;z-index:0;
+  background:radial-gradient(ellipse, rgba(59,130,246,0.12) 0%, transparent 70%);
+  pointer-events:none;
+}
+
+/* ── Main content ────────────────────────────────────── */
+.main{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:0 16px 40px}
+
+/* ── HEADER ─────────────────────────────────────────── */
+.header{
+  width:100%;max-width:520px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 0 16px;
+  margin-bottom:8px;
+}
+.header__brand{display:flex;align-items:center;gap:10px}
+.header__logo{
+  width:36px;height:36px;border-radius:8px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:700;color:#fff;
+  box-shadow:0 4px 14px rgba(59,130,246,0.4);
+}
+.header__name{font-size:15px;font-weight:600;color:var(--text)}
+.header__sub{font-size:11px;color:var(--muted);margin-top:1px}
+.header__status{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted2)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.2)}}
+/* Mobile menu toggle — only appears on small screens */
+.header__toggle{display:none;background:none;border:1px solid var(--border);color:var(--muted2);padding:6px 10px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
+@media(max-width:540px){
+  .header__toggle{display:flex;align-items:center}
+  .header__status{display:none}
+  .header__nav{
+    display:none;position:absolute;top:70px;left:0;right:0;
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:12px;z-index:50;
+  }
+  .header__nav.open{display:flex;flex-direction:column;gap:8px}
+}
+
+/* ── Card ─────────────────────────────────────────────── */
+.card{
+  width:100%;max-width:460px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:36px 36px 32px;
+  box-shadow:var(--shadow);
+  animation:slideUp .4s cubic-bezier(.16,1,.3,1);
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.card__org{display:flex;align-items:center;gap:12px;margin-bottom:28px}
+.org-icon{
+  width:48px;height:48px;border-radius:12px;
+  background:linear-gradient(135deg,#1e3a5f,#2563eb22);
+  border:1px solid #2563eb44;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+}
+.org-name{font-size:18px;font-weight:700;color:var(--text)}
+.org-desc{font-size:13px;color:var(--muted);margin-top:2px}
+
+/* ── States ─────────────────────────────────────────── */
+.state{display:none;animation:fadeIn .35s ease}
+.state.active{display:block}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ── Detection State ─────────────────────────────────── */
+.detect-wrap{text-align:center;padding:20px 0}
+.wifi-ring{
+  width:80px;height:80px;margin:0 auto 20px;position:relative;
+}
+.wifi-ring svg{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.detect-title{font-size:20px;font-weight:600;margin-bottom:8px}
+.detect-sub{font-size:14px;color:var(--muted);line-height:1.6}
+.rfc-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#1e3a5f44;border:1px solid #3b82f644;
+  border-radius:20px;padding:4px 12px;font-size:12px;
+  color:var(--cyan);margin-top:16px;
+  font-family:var(--mono);
+}
+
+/* ── Login Form ──────────────────────────────────────── */
+.form-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.form-sub{font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.6}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em}
+.field input{
+  width:100%;padding:12px 16px;
+  background:#0d1525;border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-family:var(--font);font-size:15px;
+  outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,0.15)}
+.field input::placeholder{color:var(--muted)}
+.btn{
+  width:100%;padding:13px;border:none;border-radius:10px;
+  font-family:var(--font);font-size:15px;font-weight:600;
+  cursor:pointer;transition:all .2s;margin-top:8px;
+  position:relative;overflow:hidden;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--blue),var(--blue-soft));
+  color:#fff;
+  box-shadow:0 4px 14px rgba(59,130,246,0.35);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(59,130,246,0.45)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary.loading{pointer-events:none;opacity:.8}
+.btn-secondary{background:transparent;border:1px solid var(--border);color:var(--muted2);margin-top:6px}
+.btn-secondary:hover{border-color:var(--blue);color:var(--text)}
+
+.terms{text-align:center;font-size:12px;color:var(--muted);margin-top:16px;line-height:1.7}
+.terms a{color:var(--blue);text-decoration:none}
+
+/* ── Verify State ────────────────────────────────────── */
+.verify-icon{font-size:40px;text-align:center;margin-bottom:16px}
+.otp-row{display:flex;gap:10px;justify-content:center;margin:20px 0}
+.otp-input{
+  width:52px;height:56px;text-align:center;font-size:22px;font-weight:700;
+  background:#0d1525;border:2px solid var(--border);border-radius:10px;
+  color:var(--text);font-family:var(--mono);outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+.otp-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(59,130,246,.15)}
+.otp-input.filled{border-color:var(--blue);background:#1e3a5f33}
+.resend{text-align:center;font-size:13px;color:var(--muted);margin-top:12px}
+.resend span{color:var(--blue);cursor:pointer}
+
+/* ── Session State ───────────────────────────────────── */
+.session-header{text-align:center;margin-bottom:24px}
+.session-avatar{
+  width:64px;height:64px;border-radius:50%;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;margin:0 auto 12px;
+  box-shadow:0 6px 20px rgba(59,130,246,.4);
+}
+.session-name{font-size:18px;font-weight:700}
+.session-email{font-size:13px;color:var(--muted);margin-top:2px}
+.session-connected{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#052e1644;border:1px solid #10b98133;
+  border-radius:20px;padding:4px 14px;font-size:12px;
+  color:var(--green);margin-top:10px;
+}
+.metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:20px 0}
+.metric{
+  background:#0d1525;border:1px solid var(--border);
+  border-radius:10px;padding:14px 12px;text-align:center;
+}
+.metric-val{font-size:20px;font-weight:700;color:var(--text);font-family:var(--mono)}
+.metric-lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
+.btn-danger{background:transparent;border:1px solid #ef444433;color:var(--red);margin-top:6px}
+.btn-danger:hover{background:#ef444415;border-color:var(--red)}
+
+/* ── Layer Badge ─────────────────────────────────────── */
+.layer-badge{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;font-family:var(--mono);
+  color:var(--muted);margin-bottom:20px;
+}
+.layer-badge span{
+  padding:2px 8px;border-radius:4px;
+  background:#1e3a5f44;border:1px solid #3b82f622;
+  color:var(--cyan);font-size:10px;
+}
+
+/* ── Captive Portal API Banner ───────────────────────── */
+.api-banner{
+  width:100%;max-width:460px;
+  background:#051e1044;border:1px solid var(--green);
+  border-radius:12px;padding:12px 16px;margin-top:14px;
+  display:flex;align-items:flex-start;gap:12px;
+  animation:slideUp .4s ease;
+}
+.api-banner-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.api-banner-text{font-size:12px;line-height:1.7}
+.api-banner-text strong{color:var(--green);display:block;margin-bottom:2px;font-size:13px}
+.api-banner-text code{font-family:var(--mono);font-size:11px;color:var(--cyan);background:#ffffff11;padding:1px 4px;border-radius:3px}
+.api-banner.hidden{display:none}
+
+/* ── Dev Panel ───────────────────────────────────────── */
+.devpanel{
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  padding:24px 20px;
+  overflow-y:auto;
+  position:sticky;top:0;height:100vh;
+  z-index:2;
+}
+.devpanel h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:16px}
+.devpanel h3.section{margin-top:24px;margin-bottom:10px}
+.layer-stack{display:flex;flex-direction:column;gap:4px}
+.layer-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 12px;border-radius:8px;border:1px solid transparent;
+  font-size:12px;font-family:var(--mono);
+  transition:all .25s;
+  cursor:default;
+}
+.layer-item.active{
+  background:#1e3a5f33;
+  border-color:#3b82f644;
+  color:var(--cyan);
+}
+.layer-item.done{
+  background:#052e1622;
+  border-color:#10b98133;
+  color:var(--green);
+}
+.layer-item.idle{color:var(--muted)}
+.layer-dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex-shrink:0}
+.layer-item.active .layer-dot{animation:pulse 1.2s infinite}
+.layer-check{font-size:14px}
+
+.log-box{
+  background:#060b14;border:1px solid var(--border);
+  border-radius:8px;padding:12px;margin-top:4px;
+  font-family:var(--mono);font-size:11px;
+  max-height:220px;overflow-y:auto;
+  line-height:1.8;
+}
+.log-entry{color:var(--muted)}
+.log-entry.info{color:var(--cyan)}
+.log-entry.success{color:var(--green)}
+.log-entry.warn{color:var(--orange)}
+.log-entry.error{color:var(--red)}
+
+.state-nav{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px}
+.state-btn{
+  padding:8px 6px;border-radius:8px;font-size:11px;font-family:var(--mono);
+  cursor:pointer;border:1px solid var(--border);
+  background:transparent;color:var(--muted);text-align:center;transition:all .2s;
+}
+.state-btn:hover,.state-btn.active{background:#1e3a5f33;border-color:var(--blue);color:var(--cyan)}
+
+/* ── Loader ─────────────────────────────────────────── */
+.spinner{
+  display:inline-block;width:18px;height:18px;
+  border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  border-radius:50%;animation:spin .7s linear infinite;
+  vertical-align:middle;margin-right:8px;
+}
+
+/* ── Error msg ───────────────────────────────────────── */
+.err-msg{
+  font-size:13px;color:var(--red);
+  background:#ef444415;border:1px solid #ef444430;
+  border-radius:8px;padding:10px 14px;margin-top:12px;
+  display:none;
+}
+.err-msg.show{display:block;animation:fadeIn .2s ease}
+
+/* ── Transition anim ────────────────────────────────── */
+.card.exiting{animation:fadeOut .25s ease forwards}
+@keyframes fadeOut{to{opacity:0;transform:scale(.97)}}
+
+</style>
+</head>
+<body>
+
+<div class="wifi-bg"></div>
+<div class="grid-lines"></div>
+<div class="glow"></div>
+
+<div class="app">
+
+  <!-- ═══════════ MAIN AREA ═══════════ -->
+  <div class="main">
+
+    <!-- UNIFIED HEADER (Task 3) -->
+    <header class="header">
+      <div class="header__brand">
+        <div class="header__logo">W</div>
+        <div>
+          <div class="header__name">OpenWISP</div>
+          <div class="header__sub">WiFi Login Pages</div>
+        </div>
+      </div>
+      <div class="header__status" id="headerStatus">
+        <span class="status-dot"></span>
+        Detecting network…
+      </div>
+      <!-- Mobile toggle — shown on small screens only -->
+      <button class="header__toggle" id="mobileToggle" aria-label="Menu">☰</button>
+      <nav class="header__nav" id="mobileNav">
+        <a style="color:var(--muted2);text-decoration:none;font-size:13px">Help</a>
+        <a style="color:var(--muted2);text-decoration:none;font-size:13px">About</a>
+      </nav>
+    </header>
+
+    <!-- RFC 8908 detection banner -->
+    <div class="api-banner hidden" id="apiBanner">
+      <div class="api-banner-icon">📡</div>
+      <div class="api-banner-text">
+        <strong>RFC 8908 Captive Portal API detected</strong>
+        Response: <code>{"captive": true, "user-portal-url": "..."}</code><br/>
+        Timeout: 2s · Fallback: legacy internet-mode check
+      </div>
+    </div>
+
+    <!-- CARD -->
+    <div class="card" id="mainCard">
+
+      <div class="card__org">
+        <div class="org-icon">📶</div>
+        <div>
+          <div class="org-name">City Free WiFi</div>
+          <div class="org-desc">Powered by OpenWISP · Public Network</div>
+        </div>
+      </div>
+
+      <!-- ── STATE: DETECTING ── -->
+      <div class="state active" id="stateDetect">
+        <div class="layer-badge">Active layer: <span>CaptivePortalLayer</span></div>
+        <div class="detect-wrap">
+          <div class="wifi-ring">
+            <svg viewBox="0 0 80 80" width="80" height="80" fill="none">
+              <circle cx="40" cy="40" r="34" stroke="#1e3a5f" stroke-width="6"/>
+              <circle cx="40" cy="40" r="34" stroke="#3b82f6" stroke-width="6"
+                      stroke-dasharray="60 154" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="detect-title">Checking network status…</div>
+          <div class="detect-sub">
+            Querying RFC 8908 Captive Portal API<br/>
+            with a 2-second timeout. Falling back to<br/>
+            internet-mode detection if unreachable.
+          </div>
+          <div class="rfc-badge">GET /captive-portal-api</div>
+        </div>
+      </div>
+
+      <!-- ── STATE: LOGIN ── -->
+      <div class="state" id="stateLogin">
+        <div class="layer-badge">Active layer: <span>AuthLayer</span></div>
+        <div class="form-title">Sign in to continue</div>
+        <div class="form-sub">Enter your credentials to access the internet.</div>
+
+        <div class="field">
+          <label>Email / Username</label>
+          <input type="text" id="loginEmail" placeholder="you@example.com" autocomplete="off"/>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="loginPass" placeholder="••••••••"/>
+        </div>
+
+        <div class="err-msg" id="loginErr">Incorrect credentials. Please try again.</div>
+
+        <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">
+          Connect to Internet
+        </button>
+        <button class="btn btn-secondary" onclick="goState('stateRegister')">
+          Create an account
+        </button>
+
+        <div class="terms">By connecting you agree to our <a href="#">Terms of Use</a> and <a href="#">Privacy Policy</a>.</div>
+      </div>
+
+      <!-- ── STATE: REGISTER ── -->
+      <div class="state" id="stateRegister">
+        <div class="layer-badge">Active layer: <span>AuthLayer</span></div>
+        <div class="form-title">Create account</div>
+        <div class="form-sub">Register to use this WiFi network.</div>
+        <div class="field"><label>Full Name</label><input type="text" placeholder="Avidu Witharana"/></div>
+        <div class="field"><label>Email</label><input type="email" placeholder="you@example.com"/></div>
+        <div class="field"><label>Phone</label><input type="tel" placeholder="+94 71 017 1111"/></div>
+        <div class="field"><label>Password</label><input type="password" placeholder="Min. 8 characters"/></div>
+        <button class="btn btn-primary" onclick="doRegister()">Create Account</button>
+        <button class="btn btn-secondary" onclick="goState('stateLogin')">Back to sign in</button>
+      </div>
+
+      <!-- ── STATE: VERIFY ── -->
+      <div class="state" id="stateVerify">
+        <div class="layer-badge">Active layer: <span>VerificationLayer</span></div>
+        <div class="verify-icon">📱</div>
+        <div class="form-title">Verify your phone</div>
+        <div class="form-sub" style="text-align:center">
+          We sent a 6-digit code to<br/>
+          <strong>+94 71 ••• 1111</strong>
+        </div>
+        <div class="otp-row">
+          <input class="otp-input" id="o0" maxlength="1" type="text" inputmode="numeric" oninput="otpNext(0)" onkeydown="otpBack(event,0)"/>
+          <input class="otp-input" id="o1" maxlength="1" type="text" inputmode="numeric" oninput="otpNext(1)" onkeydown="otpBack(event,1)"/>
+          <input class="otp-input" id="o2" maxlength="1" type="text" inputmode="numeric" oninput="otpNext(2)" onkeydown="otpBack(event,2)"/>
+          <input class="otp-input" id="o3" maxlength="1" type="text" inputmode="numeric" oninput="otpNext(3)" onkeydown="otpBack(event,3)"/>
+          <input class="otp-input" id="o4" maxlength="1" type="text" inputmode="numeric" oninput="otpNext(4)" onkeydown="otpBack(event,4)"/>
+          <input class="otp-input" id="o5" maxlength="1" type="text" inputmode="numeric" oninput="otpNext(5)" onkeydown="otpBack(event,5)"/>
+        </div>
+        <div class="resend">Didn't receive it? <span onclick="log('info','Resent code to +94 71 *** 1111')">Resend code</span></div>
+        <button class="btn btn-primary" onclick="doVerify()" id="verifyBtn" style="margin-top:20px">Verify &amp; Continue</button>
+      </div>
+
+      <!-- ── STATE: SESSION ── -->
+      <div class="state" id="stateSession">
+        <div class="layer-badge">Active layer: <span>SessionLayer</span> + <span>StatusView</span></div>
+        <div class="session-header">
+          <div class="session-avatar">A</div>
+          <div class="session-name">Avidu Witharana</div>
+          <div class="session-email">avidu@example.com</div>
+          <div class="session-connected"><span class="status-dot"></span> Connected</div>
+        </div>
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-val" id="metricTime">00:00</div>
+            <div class="metric-lbl">Session</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="metricDown">0.0</div>
+            <div class="metric-lbl">MB Down</div>
+          </div>
+          <div class="metric">
+            <div class="metric-val" id="metricUp">0.0</div>
+            <div class="metric-lbl">MB Up</div>
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:4px" onclick="window.open('https://openwisp.io','_blank')">View network details</button>
+        <button class="btn btn-danger btn" onclick="doLogout()">Disconnect</button>
+      </div>
+
+    </div><!-- /card -->
+  </div><!-- /main -->
+
+  <!-- ═══════════ DEV PANEL ═══════════ -->
+  <div class="devpanel">
+    <h3>Architecture Demo</h3>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.7">
+      Shows the layered component model from <strong style="color:var(--text)">GSoC proposal #918</strong>. Each layer handles exactly one concern.
+    </p>
+
+    <h3 class="section">Layer Stack</h3>
+    <div class="layer-stack" id="layerStack">
+      <div class="layer-item" id="lCaptive"><span class="layer-dot"></span>CaptivePortalLayer</div>
+      <div class="layer-item" id="lAuth"><span class="layer-dot"></span>AuthLayer</div>
+      <div class="layer-item" id="lVerify"><span class="layer-dot"></span>VerificationLayer</div>
+      <div class="layer-item" id="lPayment"><span class="layer-dot"></span>PaymentLayer</div>
+      <div class="layer-item" id="lSession"><span class="layer-dot"></span>SessionLayer</div>
+      <div class="layer-item" id="lView"><span class="layer-dot"></span>StatusView</div>
+    </div>
+
+    <h3 class="section">Jump to State</h3>
+    <div class="state-nav">
+      <button class="state-btn active" onclick="jumpTo('detect',this)">Detecting</button>
+      <button class="state-btn" onclick="jumpTo('login',this)">Login</button>
+      <button class="state-btn" onclick="jumpTo('verify',this)">Verify OTP</button>
+      <button class="state-btn" onclick="jumpTo('session',this)">Session</button>
+    </div>
+
+    <h3 class="section">Network Log</h3>
+    <div class="log-box" id="logBox">
+      <div class="log-entry info">// RFC 8908 check started</div>
+    </div>
+
+    <div style="margin-top:20px;padding:12px;background:#060b14;border:1px solid var(--border);border-radius:8px">
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);line-height:1.9">
+        <div style="color:var(--muted2);font-weight:600;margin-bottom:6px">YAML Config (per-org)</div>
+        <div>captive_portal_api:</div>
+        <div>&nbsp;&nbsp;enabled: <span style="color:var(--green)">true</span></div>
+        <div>&nbsp;&nbsp;url: <span style="color:var(--orange)">"…/captive-portal"</span></div>
+        <div>&nbsp;&nbsp;timeout: <span style="color:var(--cyan)">2</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;font-size:10px;color:var(--muted);line-height:1.8;text-align:center">
+      GSoC 2026 Prototype · Avidu Witharana<br/>
+      openwisp-wifi-login-pages
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ─── State machine ────────────────────────────────────
+let sessionTimer = null;
+let sessionSec = 0;
+let downMB = 0, upMB = 0;
+
+const layerMap = {
+  detect:  ['lCaptive'],
+  login:   ['lAuth'],
+  register:['lAuth'],
+  verify:  ['lVerify'],
+  session: ['lSession','lView'],
+};
+
+function updateLayers(state) {
+  const all = ['lCaptive','lAuth','lVerify','lPayment','lSession','lView'];
+  // determine done layers
+  const order = ['lCaptive','lAuth','lVerify','lPayment','lSession','lView'];
+  const active = layerMap[state] || [];
+  
+  // find first active index
+  const firstActive = Math.min(...active.map(a => order.indexOf(a)));
+
+  all.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done','idle');
+    if (active.includes(id)) {
+      el.classList.add('active');
+      el.innerHTML = `<span class="layer-dot"></span>${el.textContent.trim()} <span class="layer-check">●</span>`;
+    } else if (i < firstActive) {
+      el.classList.add('done');
+      el.innerHTML = `<span class="layer-check">✓</span> ${el.textContent.replace('✓','').replace('●','').trim()}`;
+    } else {
+      el.classList.add('idle');
+      el.innerHTML = `<span class="layer-dot"></span>${el.textContent.replace('✓','').replace('●','').trim()}`;
+    }
+  });
+}
+
+function goState(id) {
+  document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const key = id.replace('state','').toLowerCase();
+  updateLayers(key);
+  updateHeader(key);
+  clearError();
+}
+
+function updateHeader(state) {
+  const h = document.getElementById('headerStatus');
+  const msgs = {
+    detect: '⟳ Detecting network…',
+    login:  '◉ Portal detected',
+    register: '◉ Portal detected',
+    verify: '⟳ Verifying identity…',
+    session: '● Connected',
+  };
+  h.innerHTML = `<span class="status-dot" style="background:${state==='session'?'var(--green)':state==='detect'?'var(--orange)':'var(--cyan)'}"></span>${msgs[state]||''}`;
+}
+
+function log(type, msg) {
+  const box = document.getElementById('logBox');
+  const ts = new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  const el = document.createElement('div');
+  el.className = `log-entry ${type}`;
+  el.textContent = `[${ts}] ${msg}`;
+  box.appendChild(el);
+  box.scrollTop = box.scrollHeight;
+}
+
+function clearError() {
+  document.querySelectorAll('.err-msg').forEach(e => e.classList.remove('show'));
+}
+
+// ─── RFC 8908 detection flow ──────────────────────────
+function simulate8908() {
+  log('info','GET /captive-portal-api (timeout: 2s)');
+  setTimeout(() => {
+    log('success','200 OK — {"captive":true,"user-portal-url":"..."}');
+    document.getElementById('apiBanner').classList.remove('hidden');
+    document.getElementById('apiBanner').scrollIntoView({behavior:'smooth',block:'nearest'});
+    setTimeout(() => {
+      log('info','Captive portal confirmed. Routing to AuthLayer.');
+      goState('stateLogin');
+    }, 900);
+  }, 2200);
+}
+
+// ─── Login ─────────────────────────────────────────────
+function doLogin() {
+  const btn = document.getElementById('loginBtn');
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  clearError();
+
+  if (!email || !pass) {
+    document.getElementById('loginErr').textContent = 'Please fill in all fields.';
+    document.getElementById('loginErr').classList.add('show');
+    return;
+  }
+
+  btn.innerHTML = '<span class="spinner"></span>Authenticating…';
+  btn.classList.add('loading');
+  log('info',`POST /api/v1/default/account/token/`);
+
+  setTimeout(() => {
+    if (pass === 'wrong') {
+      btn.innerHTML = 'Connect to Internet';
+      btn.classList.remove('loading');
+      document.getElementById('loginErr').textContent = 'Invalid credentials. Try password: anything except "wrong"';
+      document.getElementById('loginErr').classList.add('show');
+      log('error','401 Unauthorized — invalid credentials');
+      return;
+    }
+    log('success','200 OK — token issued');
+    log('info','Phone verification required. Routing to VerificationLayer.');
+    btn.innerHTML = 'Connect to Internet';
+    btn.classList.remove('loading');
+    goState('stateVerify');
+  }, 1600);
+}
+
+// ─── Register ─────────────────────────────────────────
+function doRegister() {
+  log('info','POST /api/v1/default/account/ (register)');
+  setTimeout(() => {
+    log('success','201 Created — verification SMS sent');
+    log('info','Routing to VerificationLayer.');
+    goState('stateVerify');
+  }, 1200);
+}
+
+// ─── OTP ──────────────────────────────────────────────
+function otpNext(i) {
+  const el = document.getElementById(`o${i}`);
+  el.classList.toggle('filled', el.value.length > 0);
+  if (el.value.length === 1 && i < 5) document.getElementById(`o${i+1}`).focus();
+  const all = [...Array(6)].map((_,j) => document.getElementById(`o${j}`).value);
+  if (all.every(v => v)) {
+    setTimeout(() => doVerify(), 300);
+  }
+}
+function otpBack(e, i) {
+  if (e.key === 'Backspace' && !document.getElementById(`o${i}`).value && i > 0) {
+    document.getElementById(`o${i-1}`).focus();
+  }
+}
+
+function doVerify() {
+  const code = [...Array(6)].map((_,i) => document.getElementById(`o${i}`).value).join('');
+  if (code.length < 6) {
+    log('warn','OTP incomplete');
+    return;
+  }
+  const btn = document.getElementById('verifyBtn');
+  btn.innerHTML = '<span class="spinner"></span>Verifying…';
+  log('info',`POST /api/v1/default/account/phone/verify/ {code: "${code}"}`);
+  setTimeout(() => {
+    log('success','200 OK — phone verified');
+    log('info','Routing to SessionLayer → StatusView.');
+    btn.innerHTML = 'Verify & Continue';
+    goState('stateSession');
+    startSession();
+  }, 1400);
+}
+
+// ─── Session ───────────────────────────────────────────
+function startSession() {
+  sessionSec = 0;
+  if (sessionTimer) clearInterval(sessionTimer);
+  sessionTimer = setInterval(() => {
+    sessionSec++;
+    const m = String(Math.floor(sessionSec/60)).padStart(2,'0');
+    const s = String(sessionSec%60).padStart(2,'0');
+    document.getElementById('metricTime').textContent = `${m}:${s}`;
+    downMB += Math.random() * 0.15;
+    upMB += Math.random() * 0.04;
+    document.getElementById('metricDown').textContent = downMB.toFixed(1);
+    document.getElementById('metricUp').textContent = upMB.toFixed(1);
+    if (sessionSec % 10 === 0) {
+      log('info',`RADIUS keepalive — session ${m}:${s}`);
+    }
+  }, 1000);
+  log('success','RADIUS session started');
+  log('info','StatusView rendering with live session data');
+}
+
+function doLogout() {
+  if (sessionTimer) clearInterval(sessionTimer);
+  log('info','POST /api/v1/default/account/session/close/');
+  setTimeout(() => {
+    log('success','Session closed. Redirecting to login.');
+    document.getElementById('apiBanner').classList.add('hidden');
+    // clear OTP
+    [...Array(6)].forEach((_,i) => {
+      const el = document.getElementById(`o${i}`);
+      el.value = '';
+      el.classList.remove('filled');
+    });
+    goState('stateDetect');
+    simulate8908();
+  }, 800);
+}
+
+// ─── Jump panel ────────────────────────────────────────
+function jumpTo(state, btn) {
+  document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const map = {detect:'stateDetect',login:'stateLogin',verify:'stateVerify',session:'stateSession'};
+  if (state === 'session') {
+    goState('stateSession');
+    startSession();
+  } else if (state === 'detect') {
+    document.getElementById('apiBanner').classList.add('hidden');
+    goState('stateDetect');
+    setTimeout(simulate8908, 600);
+  } else {
+    goState(map[state]);
+  }
+}
+
+// ─── Mobile header toggle ─────────────────────────────
+document.getElementById('mobileToggle').addEventListener('click', () => {
+  document.getElementById('mobileNav').classList.toggle('open');
+});
+
+// ─── Boot ─────────────────────────────────────────────
+setTimeout(simulate8908, 1000);
+</script>
+</body>
+</html>
